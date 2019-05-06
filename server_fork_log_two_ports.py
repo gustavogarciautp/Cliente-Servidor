@@ -8,12 +8,23 @@ import csv
 
 ip= '192.168.0.13'
 
+file = open ('log_server_recv.csv','a')
+writer= csv.writer(file, delimiter=';')
+file2 = open ('log_server_send.csv','a')
+writer2= csv.writer(file2, delimiter=';')
+file3 = open ('time_accept.csv','a')
+writer3= csv.writer(file3, delimiter=';')
+file4 = open ('time_request.csv','a')
+writer4= csv.writer(file4, delimiter=';')
+
 def resta(connection, address):
     while True:
         res = "1|"
         data = connection.recv(1024)
+        start_time = time.time()
         if data:
             print(data)
+            writer.writerows([[data]])
             #time.sleep(60)
             a = data.split("|")
             if len(a) == 3:
@@ -34,21 +45,21 @@ def resta(connection, address):
                         res=res.rstrip()
             else:
                 res= "La expresion debe ser Operador|Operando1|Operando2"
-            file = open ('log.csv','a')
-            writer= csv.writer(file, delimiter=';')
-            writer.writerows([[address[0],address[1],data,res]])
-            file.close()
             connection.sendall(res)
+            writer2.writerows([[address[0],address[1],data,res]])
         else:
             print >>sys.stderr, 'no more data from', address
             exit(0)
+        end_time = time.time()
+        writer4.writerows([[end_time - start_time]])
+        #print("Tiempo de respuesta: "+str(end_time - start_time))
                 
 def info(connection, address):
     while True:
         data = connection.recv(1024)
         if data:
-            if data=="arv?":
-                res= 'r'+' '+ip+' '+'10000'
+            if data=="Sv?":
+                res= 'Serv|-|10000'
             else:
                 res= 'Solicitud incorrecta'
             connection.sendall(res)
@@ -63,6 +74,7 @@ def accepting(sock, port):
             print >>sys.stderr, 'waiting for a connection in port %d\n' % port
             connection, client_address = sock.accept()
             print >>sys.stderr, 'connection from', client_address
+            start_time=time.time()
 
             pid = os.fork()
 
@@ -74,7 +86,8 @@ def accepting(sock, port):
                 else:
                     info(connection, client_address)
             else:
-            	continue
+            	end_time= time.time()
+                writer3.writerows([[end_time - start_time]])
         except KeyboardInterrupt:
             sock.close()
             print("\nbye")
@@ -94,7 +107,7 @@ if __name__ == '__main__':
         sockets[i].bind(server_address)
 
         # Listen for incoming connections
-        sockets[i].listen(20)
+        sockets[i].listen(socket.SOMAXCONN)
     pid = os.fork()
     if pid<0:
         print >>sys.stderr, 'Error create process'
@@ -103,3 +116,4 @@ if __name__ == '__main__':
     else:
         accepting(sockets[1], ports[1])
 
+    
